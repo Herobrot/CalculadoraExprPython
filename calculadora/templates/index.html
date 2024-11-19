@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+   <meta charset="UTF-8">
+   <meta http-equiv="X-UA-Compatible" content="IE=edge">
+   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+   <title>Calculadora</title>
+   <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+</head>
+<body>
+   <div class="calculator">
+    <div class="header">
+       <div class="window">
+          <span class="red"></span>
+          <span class="yellow"></span>
+          <span class="green"></span>
+       </div>
+     <label class="display" for="displayInput">
+     <input type="text" value="0" id="displayInput" placeholder="0" disabled>
+    </div>
+    <div class="keys">
+       <div class="row">
+         <div class="symbol">
+            <span>(</span>
+         </div>
+         <div class="symbol">
+            <span>)</span>
+         </div>
+         <div class="symbol">
+            <span>*</span>
+         </div>
+         <div id="CE">
+            <span class="dull">CE</span>
+         </div>      
+       </div>
+       <div class="row">
+          <div class="number">
+             <span>7</span>
+             <span>8</span>
+             <span>9</span>
+          </div>
+          <div class="symbol">
+             <span>/</span>
+          </div>
+       </div>
+       <div class="row">
+          <div class="number">
+             <span>4</span>
+             <span>5</span>
+             <span>6</span>
+          </div>
+          <div class="symbol">
+             <span>+</span>
+          </div>
+       </div>
+       <div class="row">
+          <div class="number">
+             <span>1</span>
+             <span>2</span>
+             <span>3</span>
+          </div>
+          <div class="symbol">
+            <span>-</span>
+         </div>
+       </div>
+       <div class="row">
+          <div class="number">
+             <span class="dull">AC</span>
+             <span>0</span>
+             <span>.</span>
+          </div>
+          <div class="symbol action">
+            =
+         </div>
+       </div>
+    </div>
+   </div>
+   <div class="binaryTree">
+
+   </div>
+   <script>
+      function evaluateExpression(expression, input) {
+         try{
+            fetch('/calcular', {
+               method: 'POST',
+               headers: {
+                     'Content-Type': 'application/json',
+               },
+               body: JSON.stringify({ expression }),
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.valid) {                        
+                    input.value = data.result;
+              } else {                        
+                    input.value = "Error: " + data.message;
+              }
+            })
+            .catch(error => {
+               console.error("Error al procesar la entrada:", error);
+               input.value = "Error de conexión";
+            });
+         } catch (error) {
+            console.error("Error al procesar la entrada:", error);
+            input.value = "Error de conexión";
+         }
+      }
+      async function receiveImage(input) {
+         try{
+            const response = await fetch("/generate_tree", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ equation: input }),
+            });
+
+            if (response.ok) {
+               const blob = await response.blob();
+               const imgUrl = URL.createObjectURL(blob);
+               
+               const imgElement = document.getElementById("binaryTreeImage");
+               imgElement.src = imgUrl;
+               imgElement.style.display = "block";
+            } else {
+               console.error("Error al generar el árbol:", await response.json());
+            }
+         } catch (error) {
+            console.error("Error al generar el árbol:", error);
+         }
+      }
+      document.addEventListener("keydown", async function (event) {          
+          const input = document.getElementById("displayInput");
+          const dullSpan = document.querySelector(".dull");
+          let currentValue = input.value;
+            
+          if (/^[0-9]$/.test(event.key)) {              
+              input.value = currentValue === "0" ? event.key : currentValue + event.key;
+              if (dullSpan) {
+                 dullSpan.classList.replace("dull", "active");
+              }
+          } else if (["+", "-", "*", "/", "(", ")", "."].includes(event.key)) {              
+              input.value = currentValue + " " + event.key + " ";
+              if (dullSpan) {
+                 dullSpan.classList.replace("dull", "active");
+              }
+          } else if (event.key === "Backspace") {              
+              input.value = currentValue.slice(0, -1) || "0";
+              if (input.value === "") {
+                 input.value = "0";
+                 const activeSpan = document.querySelector(".active");
+                 if (activeSpan) {
+                    activeSpan.classList.replace("active", "dull");
+                 }
+              }
+          } else if (event.key === "Enter") {              
+              const expression = input.value;
+              evaluateExpression(expression, input);
+              await receiveImage(input)
+          }
+            
+          event.preventDefault();
+      });
+
+      document.addEventListener("click", async function (event) {
+         if (event.target.tagName === "SPAN") {
+            const value = event.target.textContent;               
+            const input = document.getElementById("displayInput");
+            const parentClass = event.target.parentElement.classList;
+            let currentValue = input.value;
+
+            if (parentClass.contains("number") && value !== "AC" && value !== "CE") {
+               input.value = input.value === "0" ? value : input.value + value;
+            } else if (parentClass.contains("symbol")) {
+               input.value = input.value + " " + value + " ";
+            } else if (parentClass.contains("action")) {
+               const expression = input.value;
+               evaluateExpression(expression, input);
+               await receiveImage(input)
+            } else if (value === "AC") {
+               input.value = "0";
+            } else if (value === "CE") {
+               input.value = currentValue.slice(0, -1) || "0";
+               if (input.value === "") {
+                  input.value = "0";
+                  const activeSpan = document.querySelector(".active");
+                  if (activeSpan) {
+                     activeSpan.classList.replace("active", "dull");
+                  }
+               }
+            }
+         }
+      })
+  </script>
+</html>
