@@ -194,3 +194,18 @@ p.credit {
    margin:0;
    opacity:0.8;
 }
+
+body > .binaryTree{
+   width: 40vw;
+   height: auto;
+   margin: 0 5%;
+   display: block;
+   box-shadow: 0 25px 60px -10px rgba(0, 0, 0, 0.7);
+}
+
+body > .binaryTree > img {
+   width: 100%;
+   height: auto;
+   margin: 0 auto;
+   display: block;
+}

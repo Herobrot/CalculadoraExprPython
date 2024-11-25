@@ -1,7 +1,11 @@
 from flask import Flask, request, jsonify, render_template, send_file
 from lark import Lark, exceptions, Transformer, Tree, Token
+import networkx as nx
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import io
+import os
 
 app = Flask(__name__)
 
@@ -15,7 +19,7 @@ math_grammar = """
          | term "/" factor -> divide
     ?factor: NUMBER        -> number
            | "(" expr ")"
-    NUMBER: /[0-9]+/
+    NUMBER: /[0-9]+(\\.[0-9]+)?/
     %ignore " "
 """
 
@@ -41,63 +45,63 @@ class EvaluateTree(Transformer):
 
     def group(self, value):
         return value[0] 
+
+
+def build_tree(node, graph=None, parent=None, pos=None, level=0, horizontal_spacing=1):
+    if graph is None:
+        graph = nx.DiGraph()
+        pos = {}
     
-def parse_to_tree(equation):
-    try:        
-        parse_tree = parser.parse(equation)        
-        return build_tree(parse_tree)
-    except exceptions.LarkError as e:
-        raise ValueError(f"Error en la ecuación: {str(e)}")
+    if isinstance(node, Tree):
+        label = node.data
+    elif isinstance(node, Token):
+        label = str(node)
+    else:
+        label = str(node)
+    
+    current = f"{label}_{level}_{len(pos)}"
+    pos[current] = (level, -len(pos) * horizontal_spacing)
+    
+    graph.add_node(current, label=label)
+    
+    if parent:
+        graph.add_edge(parent, current)
+    
+    if isinstance(node, Tree):
+        for child in node.children:
+            build_tree(child, graph, current, pos, level + 1, horizontal_spacing)
 
-def build_tree(parse_tree):
-    def node_to_dict(node):
-        if isinstance(node, Tree):
-            if node.data == 'number':                
-                return {"value": node.children[0].value}
-            elif node.data in ('expr', 'term', 'factor'):                
-                left = node_to_dict(node.children[0])
-                if len(node.children) > 2:
-                    op = node.children[1].value
-                    right = node_to_dict(node.children[2])
-                    return {"value": op, "left": left, "right": right}
-                return left
-        elif isinstance(node, Token):            
-            return {"value": node.value}
+    return graph, pos
 
-    return node_to_dict(parse_tree)
-
-def generate_binary_tree_image(tree):    
-    fig, ax = plt.subplots()
-    ax.set_axis_off()
-       
-    def plot_node(node, x, y, dx, depth):
-        if not node:
-            return
-        ax.text(x, y, str(node["value"]), fontsize=12, ha='center', va='center', bbox=dict(boxstyle='circle', facecolor='lightblue'))
-        if node.get("left"):
-            ax.plot([x, x - dx], [y, y - depth], 'k-')
-            plot_node(node["left"], x - dx, y - depth, dx / 2, depth)
-        if node.get("right"):
-            ax.plot([x, x + dx], [y, y - depth], 'k-')
-            plot_node(node["right"], x + dx, y - depth, dx / 2, depth)
-
-    example_tree = {"value": "+", "left": {"value": "5"}, "right": {"value": "5"}}
-
-    plot_node(example_tree, 0, 0, 1, 1)
+def generate_binary_tree_image(tree):        
+    graph, pos = build_tree(tree)
+    labels = nx.get_node_attributes(graph, 'label')
+    
+    plt.figure(figsize=(12, 8))
+    nx.draw(graph, pos, with_labels=True, labels=labels, node_size=2000, node_color="lightblue", font_size=10, font_weight="bold", arrows=False)
     buffer = io.BytesIO()
     plt.savefig(buffer, format='png', bbox_inches='tight')
     buffer.seek(0)
-    plt.close(fig)
+    plt.close()
     return buffer
 
-@app.route("/generate_tree", methods=["POST"])
-def generate_tree():
-    data = request.json
-    equation = data.get("equation", "")
-    try:
-        tree = parse_to_tree(equation)        
-        img = generate_binary_tree_image(tree)        
-        return send_file(img, mimetype="image/png")
+def save_tree_image(buffer, folder="static/images", filename="binary_tree_equation.png"):    
+    if not os.path.exists(folder):
+        os.makedirs(folder)
+    
+    image_path = os.path.join(folder, filename)
+    
+    with open(image_path, 'wb') as f:
+        f.write(buffer.getvalue())
+
+    return image_path
+
+def generate_tree(tree):
+    try:        
+        img = generate_binary_tree_image(tree)    
+        if(not img):
+            return "Error al generar el árbol binario"
+        return save_tree_image(img)
     except ValueError as e:
         return {"error": str(e)}, 400
 
@@ -109,7 +113,9 @@ def validate_expression():
     try:        
         tree = parser.parse(expression)                
         result = EvaluateTree().transform(tree)
-        return jsonify({"valid": True, "result": result})
+        url = generate_tree(tree)        
+        print("Se guardo el arbol binario en: ", url)
+        return jsonify({"valid": True, "result": result, "url": url})
     except exceptions.LarkError as e:
         return jsonify({"valid": False, "message": "Expresión inválida", "error": str(e)})
     except ZeroDivisionError:

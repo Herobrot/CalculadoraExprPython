@@ -6,6 +6,7 @@
    <meta name="viewport" content="width=device-width, initial-scale=1.0">
    <title>Calculadora</title>
    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+   <script src="https://unpkg.com/htmx.org"></script>
 </head>
 <body>
    <div class="calculator">
@@ -71,15 +72,29 @@
           </div>
           <div class="symbol action">
             =
-         </div>
+          </div>
        </div>
     </div>
    </div>
    <div class="binaryTree">
-
+      <img id="binaryTreeImage" src="" alt="Binary Tree">
    </div>
    <script>
+      let resuelto = false;
+      function updateBinaryTreeImage(imageUrl) {
+       const binaryTreeImage = document.getElementById("binaryTreeImage");
+       const uniqueUrl = `${imageUrl}?t=${new Date().getTime()}`; // Agregar timestamp para evitar caché
+       if (binaryTreeImage) {
+           binaryTreeImage.src = uniqueUrl;
+       } else {
+           const binaryTreeContainer = document.querySelector(".binaryTree");
+           binaryTreeContainer.innerHTML = `<img id="binaryTreeImage" src="${uniqueUrl}" alt="Binary Tree">`;
+       }
+      }
+
+
       function evaluateExpression(expression, input) {
+         console.log("Expresión a evaluar:", expression);
          try{
             fetch('/calcular', {
                method: 'POST',
@@ -92,6 +107,8 @@
             .then(data => {
               if (data.valid) {                        
                     input.value = data.result;
+                    updateBinaryTreeImage(data.url);
+                    resuelto = true;
               } else {                        
                     input.value = "Error: " + data.message;
               }
@@ -105,89 +122,106 @@
             input.value = "Error de conexión";
          }
       }
-      async function receiveImage(input) {
-         try{
-            const response = await fetch("/generate_tree", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ equation: input }),
-            });
 
-            if (response.ok) {
-               const blob = await response.blob();
-               const imgUrl = URL.createObjectURL(blob);
-               
-               const imgElement = document.getElementById("binaryTreeImage");
-               imgElement.src = imgUrl;
-               imgElement.style.display = "block";
-            } else {
-               console.error("Error al generar el árbol:", await response.json());
-            }
-         } catch (error) {
-            console.error("Error al generar el árbol:", error);
-         }
-      }
-      document.addEventListener("keydown", async function (event) {          
+      document.addEventListener("keydown", function (event) {
           const input = document.getElementById("displayInput");
           const dullSpan = document.querySelector(".dull");
+          const activeSpan = document.querySelector(".active");
           let currentValue = input.value;
-            
-          if (/^[0-9]$/.test(event.key)) {              
+          if(resuelto) {
+             input.value = "0";
+             resuelto = false;
+             return;
+          }
+          if (/^\d$/.test(event.key)) {              
               input.value = currentValue === "0" ? event.key : currentValue + event.key;
               if (dullSpan) {
                  dullSpan.classList.replace("dull", "active");
               }
           } else if (["+", "-", "*", "/", "(", ")", "."].includes(event.key)) {              
-              input.value = currentValue + " " + event.key + " ";
+              if (".".includes(event.key)) {
+                  input.value = currentValue + event.key;
+              } else {
+                  input.value = currentValue + " " + event.key + " ";
+              }
               if (dullSpan) {
                  dullSpan.classList.replace("dull", "active");
               }
-          } else if (event.key === "Backspace") {              
+          } else if (event.key === "Backspace" || event.key === "Delete") {                         
               input.value = currentValue.slice(0, -1) || "0";
-              if (input.value === "") {
-                 input.value = "0";
-                 const activeSpan = document.querySelector(".active");
-                 if (activeSpan) {
-                    activeSpan.classList.replace("active", "dull");
-                 }
+              if ("E".includes(input.value)) {
+                  input.value = "0";
               }
+              if (currentValue.length >= 2 && currentValue.length < 3) {
+                   const activeSpan = document.querySelector(".active");
+                   if (activeSpan) {
+                       activeSpan.classList.replace("active", "dull");
+                   }
+               } else if (currentValue.length === 1 && currentValue !== "0") {
+                  const activeSpan = document.querySelector(".active");
+                  if (activeSpan) {
+                      activeSpan.classList.replace("active", "dull");
+                  }
+               }
           } else if (event.key === "Enter") {              
               const expression = input.value;
               evaluateExpression(expression, input);
-              await receiveImage(input)
           }
             
           event.preventDefault();
       });
 
-      document.addEventListener("click", async function (event) {
-         if (event.target.tagName === "SPAN") {
-            const value = event.target.textContent;               
-            const input = document.getElementById("displayInput");
-            const parentClass = event.target.parentElement.classList;
-            let currentValue = input.value;
-
-            if (parentClass.contains("number") && value !== "AC" && value !== "CE") {
-               input.value = input.value === "0" ? value : input.value + value;
-            } else if (parentClass.contains("symbol")) {
-               input.value = input.value + " " + value + " ";
-            } else if (parentClass.contains("action")) {
+      document.addEventListener("click", function (event) {
+       if (event.target.tagName === "SPAN") {
+           const value = event.target.textContent;
+           const input = document.getElementById("displayInput");
+           const dullSpan = document.querySelector(".dull");
+           let currentValue = input.value;
+           
+           if (resuelto) {
+               input.value = "0";
+               resuelto = false;
+           }
+           
+           if (/^\d$/.test(value)) {
+               input.value = currentValue === "0" ? value : currentValue + value;
+               if (dullSpan) {
+                   dullSpan.classList.replace("dull", "active");
+               }
+           }           
+           else if (["+", "-", "*", "/", "(", ")", "."].includes(value)) {
+               input.value = currentValue + " " + value + " ";
+               if (dullSpan) {
+                   dullSpan.classList.replace("dull", "active");
+               }
+           }        
+           else if (value === "Enter") {
                const expression = input.value;
                evaluateExpression(expression, input);
-               await receiveImage(input)
-            } else if (value === "AC") {
+           }           
+           else if (value === "AC" && event.target.classList.contains("active")) {
                input.value = "0";
-            } else if (value === "CE") {
+               const activeSpan = document.querySelectorAll(".active");
+               if (activeSpan) {
+                   for (const span of activeSpan) {
+                       span.classList.replace("active", "dull");
+                   }
+               }
+           } else if (value === "CE" && event.target.classList.contains("active")) {
                input.value = currentValue.slice(0, -1) || "0";
-               if (input.value === "") {
-                  input.value = "0";
+               if (currentValue.length >= 2 && currentValue.length < 3) {
+                   const activeSpan = document.querySelector(".active");
+                   if (activeSpan) {
+                       activeSpan.classList.replace("active", "dull");
+                   }
+               } else if (currentValue.length === 1 && currentValue !== "0") {
                   const activeSpan = document.querySelector(".active");
                   if (activeSpan) {
-                     activeSpan.classList.replace("active", "dull");
+                      activeSpan.classList.replace("active", "dull");
                   }
                }
-            }
-         }
-      })
+           }
+       }
+   });
   </script>
 </html>
