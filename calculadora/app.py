@@ -6,8 +6,29 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import io
 import os
+import ply.lex as lex
 
 app = Flask(__name__)
+
+tokens = [
+    'FLOAT',
+    'NUMBER',
+    'PLUS',
+    'MINUS',
+    'MULTIPLY',
+    'DIVIDE',
+    'LPAREN',
+    'RPAREN',
+    'DOT',
+]
+
+t_PLUS = r'\+'
+t_MINUS = r'-'
+t_MULTIPLY = r'\*'
+t_DIVIDE = r'/'
+t_LPAREN = r'\('
+t_RPAREN = r'\)'
+t_DOT = r'\.'
 
 math_grammar = """
     ?start: expr
@@ -17,15 +38,19 @@ math_grammar = """
     ?term: factor
          | term "*" factor -> multiply
          | term "/" factor -> divide
-    ?factor: NUMBER        -> number
+    ?factor: FLOAT         -> float
+           | NUMBER        -> number
            | "(" expr ")"
-    NUMBER: /[0-9]+(\\.[0-9]+)?/
+    FLOAT: /[0-9]+\\.[0-9]+/
+    NUMBER: /[0-9]+/
     %ignore " "
 """
 
 parser = Lark(math_grammar, parser="lalr")
 
 class EvaluateTree(Transformer):
+    def float(self, args):
+        return float(args[0])
     def number(self, n):
         return int(n[0])
 

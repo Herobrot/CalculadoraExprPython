@@ -12,13 +12,13 @@
    <div class="calculator">
     <div class="header">
        <div class="window">
-          <span class="red"></span>
-          <span class="yellow"></span>
-          <span class="green"></span>
+           <button class="btn red">MS</button>
+           <button class="btn green toggle">Tree</button>
        </div>
-     <label class="display" for="displayInput">
-     <input type="text" value="0" id="displayInput" placeholder="0" disabled>
+       <label class="display" for="displayInput">
+      <input type="text" value="0" id="displayInput" placeholder="0" disabled>
     </div>
+
     <div class="keys">
        <div class="row">
          <div class="symbol">
@@ -77,13 +77,14 @@
     </div>
    </div>
    <div class="binaryTree">
-      <img id="binaryTreeImage" src="" alt="Binary Tree">
+      <img id="binaryTreeImage" src="static/images/blanco.png" alt="Binary Tree">
    </div>
    <script>
       let resuelto = false;
+      let memoryValue = null;
       function updateBinaryTreeImage(imageUrl) {
        const binaryTreeImage = document.getElementById("binaryTreeImage");
-       const uniqueUrl = `${imageUrl}?t=${new Date().getTime()}`; // Agregar timestamp para evitar caché
+       const uniqueUrl = `${imageUrl}?t=${new Date().getTime()}`;
        if (binaryTreeImage) {
            binaryTreeImage.src = uniqueUrl;
        } else {
@@ -91,8 +92,6 @@
            binaryTreeContainer.innerHTML = `<img id="binaryTreeImage" src="${uniqueUrl}" alt="Binary Tree">`;
        }
       }
-
-
       function evaluateExpression(expression, input) {
          console.log("Expresión a evaluar:", expression);
          try{
@@ -172,6 +171,7 @@
       });
 
       document.addEventListener("click", function (event) {
+         console.log("Click en:", event.target);
        if (event.target.tagName === "SPAN") {
            const value = event.target.textContent;
            const input = document.getElementById("displayInput");
@@ -189,12 +189,16 @@
                    dullSpan.classList.replace("dull", "active");
                }
            }           
-           else if (["+", "-", "*", "/", "(", ")", "."].includes(value)) {
-               input.value = currentValue + " " + value + " ";
-               if (dullSpan) {
-                   dullSpan.classList.replace("dull", "active");
-               }
-           }        
+           else if (["+", "-", "*", "/", "(", ")", "."].includes(value)) {              
+              if (".".includes(value)) {
+                  input.value = currentValue + value;
+              } else {
+                  input.value = currentValue + " " + value + " ";
+              }
+              if (dullSpan) {
+                 dullSpan.classList.replace("dull", "active");
+              }
+            }       
            else if (value === "Enter") {
                const expression = input.value;
                evaluateExpression(expression, input);
@@ -221,7 +225,31 @@
                   }
                }
            }
-       }
+       } else if (event.target.tagName === "DIV") {
+           const input = document.getElementById("displayInput");
+           const expression = input.value;
+           evaluateExpression(expression, input.value);
+       } 
+       event.preventDefault();
    });
+   msBtn = document.querySelector('.btn.red')
+   msBtn.addEventListener('click', function () {
+      const input = document.getElementById('displayInput');
+      const displayValue = input.value.trim();   
+      if (/^-?\d+(\.\d+)?$/.test(displayValue) && msBtn.textContent === 'MS') {
+         memoryValue = parseFloat(displayValue);
+         console.log(`Valor guardado en memoria: ${memoryValue}`);
+         alert(`Número guardado: ${memoryValue}`);
+         msBtn.textContent = 'Guardado';
+         input.value = '0';
+         return;
+      } else if (msBtn.textContent === 'Guardado') {
+         input.value = memoryValue;
+         msBtn.textContent = 'MS';
+         return;
+      } else {
+         console.log('El contenido no es un número válido');
+         alert('Error: No se puede guardar una expresión en memoria');
+      }});
   </script>
 </html>
