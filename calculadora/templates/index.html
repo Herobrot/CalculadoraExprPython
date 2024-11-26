@@ -79,9 +79,55 @@
    <div class="binaryTree">
       <img id="binaryTreeImage" src="static/images/blanco.png" alt="Binary Tree">
    </div>
+   <div class="tokenTableContainer">
+      <table id="tokenTable">
+          <thead>
+              <tr>
+                  <th>Token</th>
+                  <th>Tipo</th>
+              </tr>
+          </thead>
+          <tbody>
+
+          </tbody>
+      </table>
+  </div>
    <script>
       let resuelto = false;
       let memoryValue = null;
+      const toggleBtn = document.querySelector('.btn.green')
+       toggleBtn.addEventListener('click', function () {
+          if(toggleBtn.textContent === 'Tree') {
+             toggleBtn.textContent = 'Table';
+          } else {
+             toggleBtn.textContent = 'Tree';
+          }
+      })
+      function deactivateActiveSpan() {
+        const activeSpan = document.querySelector(".active");
+        if (activeSpan) {
+            activeSpan.classList.replace("active", "dull");
+        }
+      }
+      function populateTokenTable(tokens) {
+       const tableBody = document.querySelector("#tokenTable tbody");
+       tableBody.innerHTML = "";
+       console.log(tokens);
+       tokens.forEach(token => {
+           const row = document.createElement("tr");
+           
+           const tokenCell = document.createElement("td");
+           tokenCell.textContent = token.value;
+
+           const typeCell = document.createElement("td");
+           typeCell.textContent = token.type;
+           
+           row.appendChild(tokenCell);
+           row.appendChild(typeCell);
+           
+           tableBody.appendChild(row);
+       });
+   }
       function updateBinaryTreeImage(imageUrl) {
        const binaryTreeImage = document.getElementById("binaryTreeImage");
        const uniqueUrl = `${imageUrl}?t=${new Date().getTime()}`;
@@ -91,6 +137,34 @@
            const binaryTreeContainer = document.querySelector(".binaryTree");
            binaryTreeContainer.innerHTML = `<img id="binaryTreeImage" src="${uniqueUrl}" alt="Binary Tree">`;
        }
+      }
+      function tokenizeExpression(expression, input) {
+         try{
+            fetch('/tokenizar', {
+               method: 'POST',
+               headers: {
+                     'Content-Type': 'application/json',
+               },
+               body: JSON.stringify({ expression }),
+            })
+            .then(response => response.json())
+            .then(data => {
+              if (data.valid) {                        
+                    input.value = data.result;
+                    print(data.tokens);
+                    populateTokenTable(data.tokens);
+              } else {                        
+                    input.value = "Error: " + data.message;
+              }
+            })
+            .catch(error => {
+               console.error("Error al procesar la entrada:", error);
+               input.value = "Error de conexión";
+            });
+         } catch (error) {
+            console.error("Error al procesar la entrada:", error);
+            input.value = "Error de conexión";
+         }
       }
       function evaluateExpression(expression, input) {
          console.log("Expresión a evaluar:", expression);
@@ -164,7 +238,11 @@
                }
           } else if (event.key === "Enter") {              
               const expression = input.value;
-              evaluateExpression(expression, input);
+              if (toggleBtn.textContent === 'Tree') {
+                  evaluateExpression(expression, input);
+              } else {
+                  tokenizeExpression(expression, input);
+              }
           }
             
           event.preventDefault();
@@ -232,7 +310,7 @@
        } 
        event.preventDefault();
    });
-   msBtn = document.querySelector('.btn.red')
+   const msBtn = document.querySelector('.btn.red')
    msBtn.addEventListener('click', function () {
       const input = document.getElementById('displayInput');
       const displayValue = input.value.trim();   

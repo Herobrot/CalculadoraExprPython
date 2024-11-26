@@ -10,25 +10,51 @@ import ply.lex as lex
 
 app = Flask(__name__)
 
-tokens = [
-    'FLOAT',
-    'NUMBER',
-    'PLUS',
-    'MINUS',
-    'MULTIPLY',
-    'DIVIDE',
-    'LPAREN',
-    'RPAREN',
-    'DOT',
-]
-
-t_PLUS = r'\+'
-t_MINUS = r'-'
-t_MULTIPLY = r'\*'
-t_DIVIDE = r'/'
-t_LPAREN = r'\('
-t_RPAREN = r'\)'
-t_DOT = r'\.'
+class MathLexer:    
+    tokens = [
+        'FLOAT',      
+        'NUMBER',     
+        'PLUS',       
+        'MINUS',      
+        'MULTIPLY',   
+        'DIVIDE',     
+        'LPAREN',     
+        'RPAREN',     
+        'DOT',        
+    ]
+    
+    
+    t_PLUS = r'\+'
+    t_MINUS = r'-'
+    t_MULTIPLY = r'\*'
+    t_DIVIDE = r'/'
+    t_LPAREN = r'\('
+    t_RPAREN = r'\)'
+    t_DOT = r'\.'
+    
+    def t_FLOAT(self, t):
+        r'\d+\.\d+'
+        t.value = float(t.value)  
+        return t
+    
+    def t_NUMBER(self, t):
+        r'\d+'
+        t.value = int(t.value)  
+        return t
+    
+    t_ignore = ' \t'
+    
+    
+    def t_error(self, t):
+        print(f"Carácter ilegal {t.value[0]!r}")
+        t.lexer.skip(1)
+    
+    def __init__(self):
+        self.lexer = lex.lex(module=self)
+    
+    def tokenize(self, data):
+        self.lexer.input(data)
+        return list(self.lexer)
 
 math_grammar = """
     ?start: expr
@@ -129,6 +155,29 @@ def generate_tree(tree):
         return save_tree_image(img)
     except ValueError as e:
         return {"error": str(e)}, 400
+
+@app.route('/tokenizar', methods=['POST'])
+def token_expression():
+    data = request.json
+    expression = data.get('expression', '')
+
+    try:
+        tree = parser.parse(expression)                
+        result = EvaluateTree().transform(tree)
+        lex = MathLexer()
+        tokens = lex.tokenize(expression)
+        print("Tokens:")
+        for token in tokens:
+            print(token)
+        token_list = [{"value": token.value, "type": token.type} for token in tokens]
+        print(token_list)
+        return jsonify({"valid": True, "result": result, "tokens": token_list})
+    except exceptions.LarkError as e:
+        return jsonify({"valid": False, "message": "Expresión inválida", "error": str(e)})
+    except ZeroDivisionError:
+        return jsonify({"valid": False, "message": "No se puede dividir entre 0"})
+
+
 
 @app.route('/calcular', methods=['POST'])
 def validate_expression():

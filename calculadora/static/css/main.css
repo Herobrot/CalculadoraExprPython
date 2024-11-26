@@ -226,3 +226,26 @@ body > .binaryTree > img {
    margin: 0 auto;
    display: block;
 }
+
+.tokenTableContainer {
+   margin-top: 20px;
+   border: 1px solid #ccc;
+   border-radius: 5px;
+   overflow-x: auto;
+}
+
+#tokenTable {
+   width: 100%;
+   border-collapse: collapse;
+   text-align: left;
+}
+
+#tokenTable th, #tokenTable td {
+   padding: 10px;
+   border: 1px solid #ccc;
+}
+
+#tokenTable th {
+   background-color: #f4f4f4;
+   font-weight: bold;
+}
